@@ -1,0 +1,151 @@
+ORG 0
+
+;Finding the difference between the input exponents
+LDA BPTR I ;Load smaller exponent of B
+CMA ;Complement the value
+INC ;Increment
+ADD APTR I ;Add with value of larger exponent of A
+STA DIFF ;Store this result as the difference between the two exponents
+CMA ;Complement the difference
+INC ;Increment by 1
+STA CTR ;Store this result as the negative of the difference
+
+;Incrementing APTR and BPTR to point to the mantissa values
+ISZ APTR
+ISZ BPTR
+
+LDA BPTR I ;Load the value of B mantissa
+STA BADD ;Store in BADD to work with during the addition
+
+
+LDA DIFF ;Loading diff of input exponents 
+SZA ;Skip IF block in case diff is 0
+BUN IF ;Branch to IF when diff is not 0
+
+;Adding A & B mantissas and storing the addition in C.
+CNT, LDA BADD
+ADD APTR I
+ISZ CPTR
+STA CPTR I
+
+;Storing the exponent of A to C.
+LDA A
+STA C
+
+;Normalizing the result incase theres a carry.
+SZE
+BUN NORM
+CNTT, CLA
+
+;Multiplying part.
+
+;Load values of A and B mantissa to temp locations TMPA and TMPB
+LDA APTR I
+STA TMPA
+LDA BPTR I
+STA TMPB
+
+;Shifting A and B mantissa to the right 8 times.
+SHIFT, LDA SHFTCTR
+LDA TMPA ;Load value of TMPA
+CLE ;Clear E
+CIR ;Shift right
+STA TMPA ;Store value in TMPA
+LDA TMPB ;Load value of TMPB
+CLE ;Clear E
+CIR ;Shift right
+STA TMPB ;Store value in TMPB
+ISZ SHFTCTR
+BUN SHIFT
+
+CLA
+ISZ DPTR
+;Loop to multiply A and B.
+;Works by adding A to itself B times until B is 0.
+;We Add A to itself instead of B.
+;cos A > B and so, its much faster adding A to itself than the opposite.
+
+;storing value of TMPB in BCTR
+LDA TMPB
+STA BCTR
+
+LOOPM, LDA BCTR
+SZA
+BUN check
+
+;Storing the exponent of A+B in D
+LDA A
+ADD B
+STA D
+
+;Normalizing the result of multiplication
+NORMMULT, LDA DPTR I
+AND MASK
+SZA
+BUN CNTMULT
+LDA DPTR I
+CLE
+CIL
+STA DPTR I
+LDA D
+ADD SUB
+STA D
+BUN NORMMULT
+
+CNTMULT, HLT ;Program stops
+
+;Multiplys A and B
+;decrements B by 1 until B==0
+;storing result in DPTR .
+
+check, ADD SUB
+STA BCTR
+LDA DPTR I
+ADD TMPA
+STA DPTR I
+BUN LOOPM
+
+;Shifting B N bits to the right based on the exponent diff between A and B
+
+IF, LDA BPTR I ;Load mantissa of input B
+LOP, CLE ;Loop to shift right based on exponent difference of inputs
+CIR ;Shift right
+ISZ CTR ;Increment counter
+BUN LOP ;Repeat loop if counter not 0
+STA BADD ;Store result after shifts in BADD
+BUN CNT ;Continue after all shifts are done (alignment)
+
+;Normalizing C incase theres a carry by shifting the mantissa and incrementing the exponent
+
+NORM, LDA CPTR I ;Load mantissa of addition result to AC
+CIR ;Shift right
+STA CPTR I ;Store modified value in position of C mantissa
+LDA A ;Load exponent of input A
+INC ;Increment by 1
+STA C ;Store new value as exponent of result C
+BUN CNTT ;Continue after normalization
+
+ORG 2048
+
+APTR, DEC 2052
+BPTR, DEC 2054
+CPTR, DEC 2056
+DPTR, DEC 2058
+A, DEC 5
+HEX A000
+B, DEC 2
+HEX C000
+C, DEC 0 ;Exponent of addition result stored here
+DEC 0 ;Mantissa of addition result stores here
+D, DEC 0 ;Exponent of multiplication result stored here
+DEC 0 ;Mantissa of multiplication result stored here
+DIFF, DEC 0 ;Difference between the 2 input exponents stored here
+BADD, DEC 0 ;Temp loc to store B after shift for add
+TMPA, DEC 0 ;Temp loc to store A after shift for mult
+TMPB, DEC 0 ;Temp loc to store B after shift for mult
+CTR, DEC 0 ;Negative value of the difference between input exponents, used as counter 
+MASK, HEX 8000 ;Value to mask using to check MSB=1
+SHFTCTR, DEC -8 ;Shift counter for multiplication
+BCTR, DEC 0 ;B counter to check for 0
+SUB, DEC -1  ;subtract 
+END
